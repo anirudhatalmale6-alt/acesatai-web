@@ -91,13 +91,13 @@ export async function createUserProfile(
  */
 export async function voiceCoach(
   userId: string,
-  questionId: number,
-  audioFile: File
+  section: string,
+  audioFile: File | Blob
 ) {
   const formData = new FormData();
   formData.append('user_id', userId);
-  formData.append('question_id', questionId.toString());
-  formData.append('file', audioFile);
+  formData.append('section', section);
+  formData.append('file', audioFile, 'recording.webm');
 
   const response = await client.post('/api/v1/voice-coach', formData, {
     headers: {
