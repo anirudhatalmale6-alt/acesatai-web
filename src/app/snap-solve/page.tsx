@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { snapSolve } from '@/lib/api';
 
@@ -45,6 +45,22 @@ export default function SnapSolvePage() {
       handleFile(e.target.files[0]);
     }
   };
+
+  // Clipboard paste support (Cmd/Ctrl+V screenshot)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const blob = item.getAsFile();
+          if (blob) handleFile(blob);
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   const handleSolve = async () => {
     if (!file) return;
@@ -103,18 +119,34 @@ export default function SnapSolvePage() {
             <p className="mb-2 text-lg font-medium text-gray-200">
               Drag & drop your SAT problem image here
             </p>
-            <p className="mb-6 text-sm text-gray-500">
+            <p className="mb-2 text-sm text-gray-500">
               PNG, JPG, or JPEG up to 10MB
             </p>
-            <label className="cursor-pointer rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
-              Browse Files
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileInput}
-                className="hidden"
-              />
-            </label>
+            <p className="mb-6 text-xs text-gray-600">
+              Or paste a screenshot: <kbd className="rounded bg-gray-800 px-1.5 py-0.5 text-gray-400">⌘V</kbd> / <kbd className="rounded bg-gray-800 px-1.5 py-0.5 text-gray-400">Ctrl+V</kbd>
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <label className="cursor-pointer rounded-lg bg-blue-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700">
+                Browse Files
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileInput}
+                  className="hidden"
+                />
+              </label>
+              {/* Mobile camera trigger */}
+              <label className="cursor-pointer rounded-lg border border-emerald-600 bg-emerald-600/10 px-6 py-3 text-sm font-semibold text-emerald-400 transition-colors hover:bg-emerald-600/20 md:hidden">
+                📷 Take Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileInput}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
