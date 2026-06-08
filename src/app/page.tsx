@@ -20,7 +20,7 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-5xl font-extrabold leading-tight tracking-tight text-white md:text-7xl">
-            Ace the SAT with{' '}
+            Master the SAT with{' '}
             <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
               Adaptive AI
             </span>
@@ -111,7 +111,7 @@ export default function HomePage() {
       <section className="border-t border-gray-800 px-6 py-20">
         <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-3">
           <div className="text-center">
-            <div className="text-4xl font-bold text-blue-400">1,500+</div>
+            <div className="text-4xl font-bold text-blue-400">5,000+</div>
             <div className="mt-2 text-gray-400">SAT Questions</div>
           </div>
           <div className="text-center">
