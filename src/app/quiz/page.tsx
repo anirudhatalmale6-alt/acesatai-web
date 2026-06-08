@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Navbar from '@/components/Navbar';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import QuizCard from '@/components/QuizCard';
 import { getNextQuestion, submitAnswer } from '@/lib/api';
 
@@ -24,6 +23,32 @@ interface FeedbackData {
   xp_total: number;
 }
 
+interface QuestionRecord {
+  id: number;
+  answered: boolean;
+  flagged: boolean;
+  selectedAnswer: string;
+}
+
+const TOTAL_QUESTIONS = 22;
+const MODULE_TIME = 32 * 60;
+
+const MATH_REFERENCE = [
+  { label: 'Circle Area', formula: 'A = πr²' },
+  { label: 'Circle Circumference', formula: 'C = 2πr' },
+  { label: 'Rectangle Area', formula: 'A = lw' },
+  { label: 'Triangle Area', formula: 'A = ½bh' },
+  { label: 'Pythagorean Theorem', formula: 'a² + b² = c²' },
+  { label: 'Sphere Volume', formula: 'V = (4/3)πr³' },
+  { label: 'Cylinder Volume', formula: 'V = πr²h' },
+  { label: 'Cone Volume', formula: 'V = (1/3)πr²h' },
+  { label: 'Pyramid Volume', formula: 'V = (1/3)lwh' },
+  { label: '30-60-90 Triangle', formula: 'x, x√3, 2x' },
+  { label: '45-45-90 Triangle', formula: 'x, x, x√2' },
+  { label: 'Slope', formula: 'm = (y₂−y₁)/(x₂−x₁)' },
+  { label: 'Quadratic Formula', formula: 'x = (−b ± √(b²−4ac)) / 2a' },
+];
+
 export default function QuizPage() {
   const [question, setQuestion] = useState<QuestionData | null>(null);
   const [selectedChoice, setSelectedChoice] = useState<string>('');
@@ -34,9 +59,73 @@ export default function QuizPage() {
   const [currentHintIndex, setCurrentHintIndex] = useState<number>(0);
   const [section, setSection] = useState<string>('Verbal');
   const [excludedIds, setExcludedIds] = useState<number[]>([]);
-  const [questionCount, setQuestionCount] = useState<number>(0);
+  const [questionIndex, setQuestionIndex] = useState<number>(0);
+
+  const [timeLeft, setTimeLeft] = useState<number>(MODULE_TIME);
+  const [timerHidden, setTimerHidden] = useState<boolean>(false);
+  const [timerAlert, setTimerAlert] = useState<boolean>(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [questionRecords, setQuestionRecords] = useState<QuestionRecord[]>(
+    Array.from({ length: TOTAL_QUESTIONS }, (_, i) => ({
+      id: 0, answered: false, flagged: false, selectedAnswer: '',
+    }))
+  );
+
+  const [showCalc, setShowCalc] = useState<boolean>(false);
+  const [showRefSheet, setShowRefSheet] = useState<boolean>(false);
+  const [showNavMenu, setShowNavMenu] = useState<boolean>(false);
+  const [showAnnotateMenu, setShowAnnotateMenu] = useState<{ x: number; y: number } | null>(null);
+  const [highlights, setHighlights] = useState<string[]>([]);
+  const [calcPos, setCalcPos] = useState({ x: 100, y: 100 });
+  const [draggingCalc, setDraggingCalc] = useState(false);
+  const dragOffset = useRef({ x: 0, y: 0 });
 
   const userId = 'web_user_demo';
+
+  // Timer
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          return 0;
+        }
+        if (prev <= 300 && !timerAlert) {
+          setTimerAlert(true);
+          setTimerHidden(false);
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [timerAlert]);
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.key === 'h') { e.preventDefault(); /* highlight handled by selection */ }
+      if (e.ctrlKey && e.altKey && e.key === 'c') { e.preventDefault(); setShowCalc(p => !p); }
+      if (e.ctrlKey && e.altKey && e.key === 'v') { e.preventDefault(); toggleFlag(); }
+      if (e.ctrlKey && e.altKey && e.key === 'r') { e.preventDefault(); setShowRefSheet(p => !p); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [questionIndex]);
+
+  const toggleFlag = useCallback(() => {
+    setQuestionRecords(prev => {
+      const next = [...prev];
+      next[questionIndex] = { ...next[questionIndex], flagged: !next[questionIndex].flagged };
+      return next;
+    });
+  }, [questionIndex]);
 
   const fetchQuestion = async () => {
     setLoading(true);
@@ -50,6 +139,11 @@ export default function QuizPage() {
       const data = await getNextQuestion(userId, section, excludedIds.join(','));
       setQuestion(data);
       setExcludedIds((prev) => [...prev, data.question_id]);
+      setQuestionRecords(prev => {
+        const next = [...prev];
+        next[questionIndex] = { ...next[questionIndex], id: data.question_id };
+        return next;
+      });
     } catch (err) {
       console.error('Failed to fetch question:', err);
     } finally {
@@ -58,23 +152,45 @@ export default function QuizPage() {
   };
 
   useEffect(() => {
+    setQuestionIndex(0);
+    setExcludedIds([]);
+    setTimeLeft(MODULE_TIME);
+    setTimerAlert(false);
+    setTimerHidden(false);
+    setQuestionRecords(
+      Array.from({ length: TOTAL_QUESTIONS }, () => ({
+        id: 0, answered: false, flagged: false, selectedAnswer: '',
+      }))
+    );
     fetchQuestion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section]);
 
   const handleSubmit = async () => {
     if (!selectedChoice || !question) return;
-
     try {
       const result = await submitAnswer(userId, question.question_id, selectedChoice, section);
       setFeedback(result);
-      setQuestionCount((prev) => prev + 1);
+      setQuestionRecords(prev => {
+        const next = [...prev];
+        next[questionIndex] = { ...next[questionIndex], answered: true, selectedAnswer: selectedChoice };
+        return next;
+      });
     } catch (err) {
       console.error('Failed to submit answer:', err);
     }
   };
 
   const handleNextQuestion = () => {
+    if (questionIndex < TOTAL_QUESTIONS - 1) {
+      setQuestionIndex(prev => prev + 1);
+      fetchQuestion();
+    }
+  };
+
+  const jumpToQuestion = (idx: number) => {
+    setQuestionIndex(idx);
+    setShowNavMenu(false);
     fetchQuestion();
   };
 
@@ -93,58 +209,156 @@ export default function QuizPage() {
     }
   };
 
+  const handleTextSelect = () => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim().length > 0) {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setShowAnnotateMenu({ x: rect.left + rect.width / 2, y: rect.top - 10 });
+    } else {
+      setShowAnnotateMenu(null);
+    }
+  };
+
+  const highlightSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim()) {
+      setHighlights(prev => [...prev, sel.toString().trim()]);
+      const range = sel.getRangeAt(0);
+      const span = document.createElement('mark');
+      span.style.background = 'rgba(250, 204, 21, 0.3)';
+      span.style.color = 'inherit';
+      span.style.borderRadius = '2px';
+      range.surroundContents(span);
+      sel.removeAllRanges();
+    }
+    setShowAnnotateMenu(null);
+  };
+
+  // Draggable calculator
+  const handleCalcMouseDown = (e: React.MouseEvent) => {
+    setDraggingCalc(true);
+    dragOffset.current = { x: e.clientX - calcPos.x, y: e.clientY - calcPos.y };
+  };
+
+  useEffect(() => {
+    if (!draggingCalc) return;
+    const handleMove = (e: MouseEvent) => {
+      setCalcPos({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y });
+    };
+    const handleUp = () => setDraggingCalc(false);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
+  }, [draggingCalc]);
+
   return (
     <div className="flex h-screen flex-col bg-[#0a0e1a]">
-      {/* Quiz Header Bar */}
-      <header className="flex items-center justify-between border-b border-gray-800 bg-[#111827] px-6 py-3">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold text-white tracking-tight">
-            ACESATAI
-          </h1>
-          <span className="text-sm text-gray-400">|</span>
-          <span className="text-sm font-medium text-gray-300">
+      {/* ===== ADAPTIVE NAVIGATION BAR ===== */}
+      <header className="flex items-center justify-between border-b border-gray-800 bg-[#111827] px-4 py-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-bold text-white tracking-tight">ACESATAI</h1>
+          <span className="text-xs text-gray-500">|</span>
+          <span className="text-xs font-medium text-gray-400">
             {section === 'Verbal' ? 'Reading & Writing' : 'Mathematics'}
           </span>
+          <div className="flex rounded-md border border-gray-700 overflow-hidden ml-2">
+            <button
+              onClick={() => setSection('Verbal')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${section === 'Verbal' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+            >Verbal</button>
+            <button
+              onClick={() => setSection('Math')}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${section === 'Math' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+            >Math</button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Section Toggle */}
-          <div className="flex rounded-lg border border-gray-700 overflow-hidden">
-            <button
-              onClick={() => { setSection('Verbal'); setExcludedIds([]); }}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                section === 'Verbal'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              Verbal
-            </button>
-            <button
-              onClick={() => { setSection('Math'); setExcludedIds([]); }}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                section === 'Math'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-transparent text-gray-400 hover:text-white'
-              }`}
-            >
-              Math
-            </button>
-          </div>
-
-          <div className="rounded-lg bg-gray-800 px-4 py-2 text-sm text-gray-300">
-            Q: {questionCount + 1}
-          </div>
-
-          {question && (
-            <div className="rounded-lg bg-gray-800 px-4 py-2 text-xs text-gray-400">
-              Difficulty: {question.difficulty_level}/5
+        {/* Center: Timer */}
+        <div className="flex items-center gap-2">
+          {(!timerHidden || timerAlert) && (
+            <div className={`rounded-lg px-4 py-1.5 text-sm font-mono font-bold ${timerAlert ? 'bg-red-600/20 text-red-400 animate-pulse' : 'bg-gray-800 text-gray-200'}`}>
+              {formatTime(timeLeft)}
             </div>
           )}
+          {!timerAlert && (
+            <button
+              onClick={() => setTimerHidden(!timerHidden)}
+              className="rounded px-2 py-1 text-xs text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-colors"
+            >
+              {timerHidden ? 'Show' : 'Hide'}
+            </button>
+          )}
+        </div>
+
+        {/* Right: Tools */}
+        <div className="flex items-center gap-2">
+          {/* Mark for Review */}
+          <button
+            onClick={toggleFlag}
+            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${questionRecords[questionIndex]?.flagged ? 'bg-amber-600/20 text-amber-400 border border-amber-600/50' : 'text-gray-400 hover:text-amber-400 hover:bg-gray-800'}`}
+            title="Mark for Review (Ctrl+Alt+V)"
+          >
+            <svg className="h-3.5 w-3.5" fill={questionRecords[questionIndex]?.flagged ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+            </svg>
+            {questionRecords[questionIndex]?.flagged ? 'Flagged' : 'Flag'}
+          </button>
+
+          <div className="h-5 w-px bg-gray-700" />
+
+          {/* Annotate Tool (for Verbal) */}
+          {section === 'Verbal' && (
+            <button
+              onClick={highlightSelection}
+              className="rounded-lg px-3 py-1.5 text-xs text-gray-400 hover:text-yellow-400 hover:bg-gray-800 transition-colors"
+              title="Highlight Selected Text (Ctrl+H)"
+            >
+              <svg className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              Highlight
+            </button>
+          )}
+
+          {/* Calculator (Math only) */}
+          {section === 'Math' && (
+            <button
+              onClick={() => setShowCalc(!showCalc)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${showCalc ? 'bg-blue-600/20 text-blue-400 border border-blue-600/50' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
+              title="Desmos Calculator (Ctrl+Alt+C)"
+            >
+              <svg className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Calculator
+            </button>
+          )}
+
+          {/* Reference Sheet (Math only) */}
+          {section === 'Math' && (
+            <button
+              onClick={() => setShowRefSheet(!showRefSheet)}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${showRefSheet ? 'bg-purple-600/20 text-purple-400 border border-purple-600/50' : 'text-gray-400 hover:text-purple-400 hover:bg-gray-800'}`}
+              title="Reference Sheet (Ctrl+Alt+R)"
+            >
+              <svg className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Reference
+            </button>
+          )}
+
+          <div className="h-5 w-px bg-gray-700" />
+
+          {/* Question Counter */}
+          <div className="rounded-lg bg-gray-800 px-3 py-1.5 text-xs text-gray-300">
+            Q {questionIndex + 1} / {TOTAL_QUESTIONS}
+          </div>
         </div>
       </header>
 
-      {/* Main Split Screen */}
+      {/* ===== MAIN CONTENT ===== */}
       {loading ? (
         <div className="flex flex-1 items-center justify-center">
           <div className="flex flex-col items-center gap-4">
@@ -153,9 +367,12 @@ export default function QuizPage() {
           </div>
         </div>
       ) : question ? (
-        <main className="flex flex-1 overflow-hidden">
+        <main className="relative flex flex-1 overflow-hidden">
           {/* Left Panel: Passage */}
-          <section className="w-1/2 overflow-y-auto border-r border-gray-800 bg-[#0d1117] p-8">
+          <section
+            className="w-1/2 overflow-y-auto border-r border-gray-800 bg-[#0d1117] p-8"
+            onMouseUp={section === 'Verbal' ? handleTextSelect : undefined}
+          >
             {question.passage ? (
               <div className="rounded-xl border border-gray-800 bg-[#111827] p-6">
                 <div className="mb-4 flex items-center gap-2">
@@ -166,7 +383,7 @@ export default function QuizPage() {
                     {question.micro_skill}
                   </span>
                 </div>
-                <p className="whitespace-pre-wrap text-base leading-relaxed text-gray-300">
+                <p className="whitespace-pre-wrap text-base leading-relaxed text-gray-300 passage-text select-text cursor-text">
                   {question.passage}
                 </p>
               </div>
@@ -188,30 +405,22 @@ export default function QuizPage() {
               </div>
             )}
 
-            {/* Socratic Hints Panel */}
+            {/* Socratic Hints */}
             {feedback && !feedback.was_correct && question.socratic_hints && (
               <div className="mt-6 rounded-xl border border-amber-700/50 bg-amber-900/20 p-6">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-amber-300">Socratic Hints</h3>
-                  <button
-                    onClick={() => setShowHints(!showHints)}
-                    className="text-xs text-amber-400 hover:text-amber-300"
-                  >
+                  <button onClick={() => setShowHints(!showHints)} className="text-xs text-amber-400 hover:text-amber-300">
                     {showHints ? 'Hide' : 'Show'} Hints
                   </button>
                 </div>
                 {showHints && (
                   <div className="space-y-2">
                     {question.socratic_hints.slice(0, currentHintIndex + 1).map((hint, i) => (
-                      <p key={i} className="text-sm text-amber-200/80">
-                        {i + 1}. {hint}
-                      </p>
+                      <p key={i} className="text-sm text-amber-200/80">{i + 1}. {hint}</p>
                     ))}
                     {currentHintIndex < question.socratic_hints.length - 1 && (
-                      <button
-                        onClick={revealNextHint}
-                        className="mt-2 text-xs font-medium text-amber-400 hover:text-amber-300"
-                      >
+                      <button onClick={revealNextHint} className="mt-2 text-xs font-medium text-amber-400 hover:text-amber-300">
                         Reveal next hint...
                       </button>
                     )}
@@ -254,9 +463,7 @@ export default function QuizPage() {
                         Incorrect. Answer: {feedback.correct_answer}
                       </span>
                     )}
-                    <span className="text-xs text-gray-500">
-                      Theta: {feedback.new_theta}
-                    </span>
+                    <span className="text-xs text-gray-500">Theta: {feedback.new_theta}</span>
                   </div>
                   <button
                     onClick={handleNextQuestion}
@@ -268,12 +475,146 @@ export default function QuizPage() {
               )}
             </div>
           </section>
+
+          {/* ===== FLOATING: Highlight Menu ===== */}
+          {showAnnotateMenu && (
+            <div
+              className="fixed z-50 flex gap-1 rounded-lg border border-gray-700 bg-[#1e293b] p-1.5 shadow-xl"
+              style={{ left: showAnnotateMenu.x - 60, top: showAnnotateMenu.y - 40 }}
+            >
+              <button onClick={highlightSelection} className="rounded px-3 py-1 text-xs text-yellow-400 hover:bg-yellow-600/20 transition-colors">
+                Highlight
+              </button>
+              <button onClick={() => setShowAnnotateMenu(null)} className="rounded px-2 py-1 text-xs text-gray-500 hover:text-gray-300 transition-colors">
+                &times;
+              </button>
+            </div>
+          )}
+
+          {/* ===== FLOATING: Desmos Calculator ===== */}
+          {showCalc && (
+            <div
+              className="fixed z-40 rounded-xl border border-gray-700 bg-[#1e293b] shadow-2xl overflow-hidden"
+              style={{ left: calcPos.x, top: calcPos.y, width: 420, height: 340 }}
+            >
+              <div
+                className="flex items-center justify-between bg-[#0f172a] px-4 py-2 cursor-move select-none"
+                onMouseDown={handleCalcMouseDown}
+              >
+                <span className="text-xs font-medium text-gray-300">Desmos Graphing Calculator</span>
+                <button onClick={() => setShowCalc(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
+              </div>
+              <iframe
+                src="https://www.desmos.com/testing"
+                className="w-full border-0"
+                style={{ height: 300 }}
+                title="Desmos Calculator"
+              />
+            </div>
+          )}
+
+          {/* ===== FLOATING: Reference Sheet ===== */}
+          {showRefSheet && (
+            <div className="fixed right-4 top-16 z-40 w-80 rounded-xl border border-gray-700 bg-[#1e293b] shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between bg-[#0f172a] px-4 py-2">
+                <span className="text-xs font-medium text-gray-300">Reference Sheet</span>
+                <button onClick={() => setShowRefSheet(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
+              </div>
+              <div className="max-h-96 overflow-y-auto p-4">
+                <div className="space-y-2">
+                  {MATH_REFERENCE.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between rounded-lg bg-gray-800/50 px-3 py-2">
+                      <span className="text-xs text-gray-400">{item.label}</span>
+                      <span className="text-xs font-mono text-purple-300">{item.formula}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       ) : (
         <div className="flex flex-1 items-center justify-center">
           <p className="text-gray-400">No questions available. Try switching sections.</p>
         </div>
       )}
+
+      {/* ===== BOTTOM CONTROL CENTER ===== */}
+      <footer className="border-t border-gray-800 bg-[#111827] px-4 py-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNavMenu(!showNavMenu)}
+              className="rounded-lg bg-gray-800 px-4 py-2 text-xs font-medium text-gray-300 hover:bg-gray-700 transition-colors"
+            >
+              <svg className="h-3.5 w-3.5 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+              Question {questionIndex + 1} of {TOTAL_QUESTIONS}
+            </button>
+            <div className="text-xs text-gray-600 ml-2">
+              Shortcuts: Ctrl+Alt+C Calculator &middot; Ctrl+Alt+V Flag &middot; Ctrl+Alt+R Reference
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { if (questionIndex > 0) { setQuestionIndex(prev => prev - 1); fetchQuestion(); }}}
+              disabled={questionIndex === 0}
+              className="rounded-lg bg-gray-800 px-4 py-2 text-xs text-gray-300 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              &larr; Back
+            </button>
+            <button
+              onClick={handleNextQuestion}
+              disabled={questionIndex >= TOTAL_QUESTIONS - 1}
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Next &rarr;
+            </button>
+          </div>
+        </div>
+
+        {/* Question Navigation Grid */}
+        {showNavMenu && (
+          <div className="mt-3 rounded-xl border border-gray-700 bg-[#0f172a] p-4">
+            <div className="mb-3 flex items-center gap-4 text-xs text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full bg-blue-600" /> Answered
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-full border border-gray-600" /> Unanswered
+              </span>
+              <span className="flex items-center gap-1.5">
+                <svg className="h-3 w-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" /></svg>
+                Flagged
+              </span>
+            </div>
+            <div className="grid grid-cols-11 gap-2">
+              {questionRecords.map((rec, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => jumpToQuestion(idx)}
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-lg text-xs font-bold transition-all ${
+                    idx === questionIndex
+                      ? 'bg-blue-600 text-white ring-2 ring-blue-400'
+                      : rec.answered
+                        ? 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/50'
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                  }`}
+                >
+                  {idx + 1}
+                  {rec.flagged && (
+                    <svg className="absolute -top-1 -right-1 h-3 w-3 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </footer>
     </div>
   );
 }
