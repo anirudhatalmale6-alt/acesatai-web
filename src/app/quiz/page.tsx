@@ -80,6 +80,12 @@ export default function QuizPage() {
   const [calcPos, setCalcPos] = useState({ x: 100, y: 100 });
   const [draggingCalc, setDraggingCalc] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
+  const [showLineReader, setShowLineReader] = useState(false);
+  const [lineReaderY, setLineReaderY] = useState(300);
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [notes, setNotes] = useState<Array<{ text: string; note: string }>>([]);
+  const [showNotesPanel, setShowNotesPanel] = useState(false);
 
   const userId = 'web_user_demo';
 
@@ -110,7 +116,8 @@ export default function QuizPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === 'h') { e.preventDefault(); /* highlight handled by selection */ }
+      if (e.ctrlKey && !e.altKey && e.key === 'h') { e.preventDefault(); highlightSelection(); }
+      if (e.ctrlKey && !e.altKey && e.key === 'l') { e.preventDefault(); setShowLineReader(p => !p); }
       if (e.ctrlKey && e.altKey && e.key === 'c') { e.preventDefault(); setShowCalc(p => !p); }
       if (e.ctrlKey && e.altKey && e.key === 'v') { e.preventDefault(); toggleFlag(); }
       if (e.ctrlKey && e.altKey && e.key === 'r') { e.preventDefault(); setShowRefSheet(p => !p); }
@@ -307,18 +314,39 @@ export default function QuizPage() {
 
           <div className="h-5 w-px bg-gray-700" />
 
-          {/* Annotate Tool (for Verbal) */}
+          {/* Annotate Tools (for Verbal) */}
           {section === 'Verbal' && (
-            <button
-              onClick={highlightSelection}
-              className="rounded-lg px-3 py-1.5 text-xs text-gray-400 hover:text-yellow-400 hover:bg-gray-800 transition-colors"
-              title="Highlight Selected Text (Ctrl+H)"
-            >
-              <svg className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              Highlight
-            </button>
+            <>
+              <button
+                onClick={highlightSelection}
+                className="rounded-lg px-3 py-1.5 text-xs text-gray-400 hover:text-yellow-400 hover:bg-gray-800 transition-colors"
+                title="Highlight Selected Text (Ctrl+H)"
+              >
+                <svg className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                Highlight
+              </button>
+              <button
+                onClick={() => setShowLineReader(p => !p)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${showLineReader ? 'bg-cyan-600/20 text-cyan-400 border border-cyan-600/50' : 'text-gray-400 hover:text-cyan-400 hover:bg-gray-800'}`}
+                title="Line Reader (Ctrl+L)"
+              >
+                <svg className="h-3.5 w-3.5 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+                </svg>
+                Reader
+              </button>
+              {notes.length > 0 && (
+                <button
+                  onClick={() => setShowNotesPanel(p => !p)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${showNotesPanel ? 'bg-blue-600/20 text-blue-400 border border-blue-600/50' : 'text-gray-400 hover:text-blue-400 hover:bg-gray-800'}`}
+                  title="View Notes"
+                >
+                  Notes ({notes.length})
+                </button>
+              )}
+            </>
           )}
 
           {/* Calculator (Math only) */}
@@ -476,19 +504,105 @@ export default function QuizPage() {
             </div>
           </section>
 
-          {/* ===== FLOATING: Highlight Menu ===== */}
-          {showAnnotateMenu && (
+          {/* ===== FLOATING: Highlight & Notes Menu ===== */}
+          {showAnnotateMenu && !showNoteInput && (
             <div
               className="fixed z-50 flex gap-1 rounded-lg border border-gray-700 bg-[#1e293b] p-1.5 shadow-xl"
-              style={{ left: showAnnotateMenu.x - 60, top: showAnnotateMenu.y - 40 }}
+              style={{ left: showAnnotateMenu.x - 80, top: showAnnotateMenu.y - 40 }}
             >
               <button onClick={highlightSelection} className="rounded px-3 py-1 text-xs text-yellow-400 hover:bg-yellow-600/20 transition-colors">
                 Highlight
+              </button>
+              <button onClick={() => setShowNoteInput(true)} className="rounded px-3 py-1 text-xs text-blue-400 hover:bg-blue-600/20 transition-colors">
+                Note
               </button>
               <button onClick={() => setShowAnnotateMenu(null)} className="rounded px-2 py-1 text-xs text-gray-500 hover:text-gray-300 transition-colors">
                 &times;
               </button>
             </div>
+          )}
+
+          {/* ===== FLOATING: Note Input ===== */}
+          {showAnnotateMenu && showNoteInput && (
+            <div
+              className="fixed z-50 w-64 rounded-lg border border-gray-700 bg-[#1e293b] p-3 shadow-xl"
+              style={{ left: showAnnotateMenu.x - 130, top: showAnnotateMenu.y - 120 }}
+            >
+              <div className="mb-2 text-xs font-medium text-gray-300">Add a note</div>
+              <textarea
+                autoFocus
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                className="mb-2 w-full rounded-md border border-gray-600 bg-gray-900 p-2 text-xs text-gray-200 outline-none focus:border-blue-500 resize-none"
+                rows={3}
+                placeholder="Type your note..."
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    const sel = window.getSelection();
+                    if (sel && sel.toString().trim() && noteText.trim()) {
+                      const selectedText = sel.toString().trim();
+                      setNotes(prev => [...prev, { text: selectedText, note: noteText.trim() }]);
+                      highlightSelection();
+                    }
+                    setShowNoteInput(false);
+                    setNoteText('');
+                    setShowAnnotateMenu(null);
+                  }}
+                  className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 transition-colors"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => { setShowNoteInput(false); setNoteText(''); setShowAnnotateMenu(null); }}
+                  className="rounded px-3 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ===== FLOATING: Notes Panel ===== */}
+          {showNotesPanel && notes.length > 0 && (
+            <div className="fixed left-4 bottom-16 z-40 w-72 max-h-64 overflow-y-auto rounded-xl border border-gray-700 bg-[#1e293b] shadow-2xl">
+              <div className="flex items-center justify-between bg-[#0f172a] px-4 py-2">
+                <span className="text-xs font-medium text-gray-300">My Notes ({notes.length})</span>
+                <button onClick={() => setShowNotesPanel(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
+              </div>
+              <div className="p-3 space-y-2">
+                {notes.map((n, i) => (
+                  <div key={i} className="rounded-lg border border-gray-700/50 bg-gray-800/30 p-2.5">
+                    <div className="text-[10px] text-yellow-400/70 italic mb-1">&ldquo;{n.text.slice(0, 60)}{n.text.length > 60 ? '...' : ''}&rdquo;</div>
+                    <div className="text-xs text-gray-300">{n.note}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ===== FLOATING: Line Reader Overlay ===== */}
+          {showLineReader && (
+            <>
+              <div className="fixed inset-0 z-30 pointer-events-none">
+                <div className="absolute left-0 right-0 bg-black/60" style={{ top: 0, height: lineReaderY - 30 }} />
+                <div className="absolute left-0 right-0 bg-black/60" style={{ top: lineReaderY + 30, bottom: 0 }} />
+                <div className="absolute left-0 right-0 border-y border-blue-500/40" style={{ top: lineReaderY - 30, height: 60 }} />
+              </div>
+              <div
+                className="fixed left-0 right-0 z-30 h-16 cursor-ns-resize"
+                style={{ top: lineReaderY - 32 }}
+                onMouseDown={(e) => {
+                  const startY = e.clientY;
+                  const startPos = lineReaderY;
+                  const onMove = (ev: MouseEvent) => setLineReaderY(Math.max(60, Math.min(window.innerHeight - 60, startPos + ev.clientY - startY)));
+                  const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+                  window.addEventListener('mousemove', onMove);
+                  window.addEventListener('mouseup', onUp);
+                }}
+              />
+            </>
           )}
 
           {/* ===== FLOATING: Desmos Calculator ===== */}
@@ -553,7 +667,7 @@ export default function QuizPage() {
               Question {questionIndex + 1} of {TOTAL_QUESTIONS}
             </button>
             <div className="text-xs text-gray-600 ml-2">
-              Shortcuts: Ctrl+Alt+C Calculator &middot; Ctrl+Alt+V Flag &middot; Ctrl+Alt+R Reference
+              Ctrl+H Highlight &middot; Ctrl+L Reader &middot; Ctrl+Alt+C Calculator &middot; Ctrl+Alt+V Flag &middot; Ctrl+Alt+R Reference
             </div>
           </div>
 
