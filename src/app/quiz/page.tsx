@@ -30,6 +30,49 @@ interface QuestionRecord {
   selectedAnswer: string;
 }
 
+function DesmosEmbed() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const calcRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (calcRef.current) return;
+
+    const script = document.createElement('script');
+    script.src = 'https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
+    script.async = true;
+    script.onload = () => {
+      if (containerRef.current && (window as any).Desmos) {
+        calcRef.current = (window as any).Desmos.GraphingCalculator(containerRef.current, {
+          keypad: true,
+          expressions: true,
+          settingsMenu: false,
+          zoomButtons: true,
+          expressionsTopbar: false,
+          border: false,
+          lockViewport: false,
+          images: false,
+          folders: false,
+          notes: false,
+          sliders: true,
+          links: false,
+          trace: true,
+        });
+      }
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      if (calcRef.current) {
+        calcRef.current.destroy();
+        calcRef.current = null;
+      }
+    };
+  }, []);
+
+  return <div ref={containerRef} style={{ width: '100%', height: 360 }} />;
+}
+
 const TOTAL_QUESTIONS = 22;
 const MODULE_TIME = 32 * 60;
 
@@ -605,25 +648,20 @@ export default function QuizPage() {
             </>
           )}
 
-          {/* ===== FLOATING: Desmos Calculator ===== */}
+          {/* ===== FLOATING: Desmos Calculator (Native API) ===== */}
           {showCalc && (
             <div
               className="fixed z-40 rounded-xl border border-gray-700 bg-[#1e293b] shadow-2xl overflow-hidden"
-              style={{ left: calcPos.x, top: calcPos.y, width: 420, height: 340 }}
+              style={{ left: calcPos.x, top: calcPos.y, width: 480, height: 400 }}
             >
               <div
                 className="flex items-center justify-between bg-[#0f172a] px-4 py-2 cursor-move select-none"
                 onMouseDown={handleCalcMouseDown}
               >
-                <span className="text-xs font-medium text-gray-300">Desmos Graphing Calculator</span>
+                <span className="text-xs font-medium text-gray-300">Graphing Calculator</span>
                 <button onClick={() => setShowCalc(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
               </div>
-              <iframe
-                src="https://www.desmos.com/testing"
-                className="w-full border-0"
-                style={{ height: 300 }}
-                title="Desmos Calculator"
-              />
+              <DesmosEmbed />
             </div>
           )}
 
