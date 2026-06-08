@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import QuizCard from '@/components/QuizCard';
+import VoiceCoach from '@/components/VoiceCoach';
 import { getNextQuestion, submitAnswer } from '@/lib/api';
 
 interface QuestionData {
@@ -534,13 +535,23 @@ export default function QuizPage() {
             {/* Action Buttons */}
             <div className="mt-auto flex items-center justify-between border-t border-gray-800 pt-6">
               {!feedback ? (
-                <button
-                  disabled={!selectedChoice}
-                  onClick={handleSubmit}
-                  className="ml-auto rounded-xl bg-blue-600 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-blue-600/40 disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Submit Answer
-                </button>
+                <div className="flex w-full items-center justify-between">
+                  {question && (
+                    <VoiceCoach
+                      questionContext={question.question_text}
+                      questionId={question.question_id}
+                      userId={userId}
+                      section={section}
+                    />
+                  )}
+                  <button
+                    disabled={!selectedChoice}
+                    onClick={handleSubmit}
+                    className="rounded-xl bg-blue-600 px-8 py-4 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-blue-600/40 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Submit Answer
+                  </button>
+                </div>
               ) : (
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center gap-3">
