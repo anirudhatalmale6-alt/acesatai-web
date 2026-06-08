@@ -33,34 +33,45 @@ interface QuestionRecord {
 function DesmosEmbed() {
   const containerRef = useRef<HTMLDivElement>(null);
   const calcRef = useRef<any>(null);
+  const scriptLoaded = useRef(false);
 
   useEffect(() => {
     if (!containerRef.current) return;
-    if (calcRef.current) return;
 
-    const script = document.createElement('script');
-    script.src = 'https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
-    script.async = true;
-    script.onload = () => {
-      if (containerRef.current && (window as any).Desmos) {
-        calcRef.current = (window as any).Desmos.GraphingCalculator(containerRef.current, {
-          keypad: true,
-          expressions: true,
-          settingsMenu: false,
-          zoomButtons: true,
-          expressionsTopbar: false,
-          border: false,
-          lockViewport: false,
-          images: false,
-          folders: false,
-          notes: false,
-          sliders: true,
-          links: false,
-          trace: true,
-        });
-      }
+    const initDesmos = () => {
+      if (calcRef.current || !containerRef.current) return;
+      const D = (window as any).Desmos;
+      if (!D) return;
+      calcRef.current = D.GraphingCalculator(containerRef.current, {
+        keypad: true,
+        expressions: true,
+        settingsMenu: true,
+        zoomButtons: true,
+        expressionsTopbar: true,
+        border: false,
+        lockViewport: false,
+        images: false,
+        folders: false,
+        notes: false,
+        sliders: true,
+        links: false,
+        trace: true,
+        graphpaper: true,
+        expressionsCollapsed: false,
+      });
+      calcRef.current.setExpression({ id: 'demo', latex: '' });
     };
-    document.head.appendChild(script);
+
+    if ((window as any).Desmos) {
+      initDesmos();
+    } else if (!scriptLoaded.current) {
+      scriptLoaded.current = true;
+      const script = document.createElement('script');
+      script.src = 'https://www.desmos.com/api/v1.9/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6';
+      script.async = true;
+      script.onload = initDesmos;
+      document.head.appendChild(script);
+    }
 
     return () => {
       if (calcRef.current) {
@@ -70,7 +81,14 @@ function DesmosEmbed() {
     };
   }, []);
 
-  return <div ref={containerRef} style={{ width: '100%', height: 360 }} />;
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: 360, position: 'relative', zIndex: 1 }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
 }
 
 const TOTAL_QUESTIONS = 22;
@@ -651,17 +669,19 @@ export default function QuizPage() {
           {/* ===== FLOATING: Desmos Calculator (Native API) ===== */}
           {showCalc && (
             <div
-              className="fixed z-40 rounded-xl border border-gray-700 bg-[#1e293b] shadow-2xl overflow-hidden"
-              style={{ left: calcPos.x, top: calcPos.y, width: 480, height: 400 }}
+              className="fixed z-40 rounded-xl border border-gray-700 bg-white shadow-2xl"
+              style={{ left: calcPos.x, top: calcPos.y, width: 520, height: 420 }}
             >
               <div
-                className="flex items-center justify-between bg-[#0f172a] px-4 py-2 cursor-move select-none"
+                className="flex items-center justify-between bg-[#0f172a] px-4 py-2 cursor-move select-none rounded-t-xl"
                 onMouseDown={handleCalcMouseDown}
               >
                 <span className="text-xs font-medium text-gray-300">Graphing Calculator</span>
                 <button onClick={() => setShowCalc(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
               </div>
-              <DesmosEmbed />
+              <div style={{ width: '100%', height: 382 }}>
+                <DesmosEmbed />
+              </div>
             </div>
           )}
 
