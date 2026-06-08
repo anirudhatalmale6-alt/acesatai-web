@@ -29,12 +29,16 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
   const panelRef = useRef<HTMLDivElement>(null);
 
   const unlockAudioContext = async () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
-    }
+    try {
+      const AC = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AC) return;
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AC();
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume();
+      }
+    } catch { /* AudioContext not available */ }
   };
 
   const getSupportedMimeType = () => {
