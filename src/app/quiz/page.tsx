@@ -99,7 +99,7 @@ export default function QuizPage() {
       <header className="flex items-center justify-between border-b border-gray-800 bg-[#111827] px-6 py-3">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-bold text-white tracking-tight">
-            ACESAT<span className="text-blue-400">AI</span>
+            ACESATAI
           </h1>
           <span className="text-sm text-gray-400">|</span>
           <span className="text-sm font-medium text-gray-300">

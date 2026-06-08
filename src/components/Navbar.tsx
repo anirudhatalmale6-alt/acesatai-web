@@ -22,7 +22,7 @@ export default function Navbar() {
             A
           </div>
           <span className="text-xl font-bold text-white tracking-tight">
-            ACESAT<span className="text-blue-400">AI</span>
+            ACESATAI
           </span>
         </Link>
 
