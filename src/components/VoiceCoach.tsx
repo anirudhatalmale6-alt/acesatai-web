@@ -53,7 +53,12 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
     await unlockAudioContext();
 
     if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-      setError('Your browser does not support audio recording. Please use Chrome, Safari, or Firefox.');
+      setError('Your browser does not support audio recording. Please use Safari on iOS or Chrome on desktop.');
+      return;
+    }
+
+    if (typeof MediaRecorder === 'undefined') {
+      setError('Voice recording is not supported in this browser. Please use Safari on iOS for voice recording.');
       return;
     }
 
