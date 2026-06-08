@@ -95,8 +95,13 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
       mediaRecorderRef.current = recorder;
       recorder.start(200);
       setState('recording');
-    } catch {
-      setError('Microphone access denied. Please allow mic permissions in your browser settings and try again.');
+    } catch (err: any) {
+      const msg = err?.name === 'NotAllowedError'
+        ? 'Microphone access denied. Please allow mic permissions in your browser settings and try again.'
+        : err?.name === 'NotFoundError'
+          ? 'No microphone found. Please connect a microphone and try again.'
+          : `Microphone error: ${err?.message || 'Unknown error'}. Please try again.`;
+      setError(msg);
       setState('idle');
     }
   };
@@ -151,7 +156,8 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
       }, 100);
 
     } catch (err: any) {
-      setError(err.message || 'Voice Coach connection failed. Please try again.');
+      const msg = typeof err === 'string' ? err : (err?.message || err?.detail || 'Voice Coach connection failed. Please try again.');
+      setError(String(msg));
       setState('idle');
     }
   };
