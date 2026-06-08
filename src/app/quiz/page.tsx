@@ -139,6 +139,7 @@ export default function QuizPage() {
   const [showAnnotateMenu, setShowAnnotateMenu] = useState<{ x: number; y: number } | null>(null);
   const [highlights, setHighlights] = useState<string[]>([]);
   const [calcPos, setCalcPos] = useState({ x: 100, y: 100 });
+  const [calcExpanded, setCalcExpanded] = useState(false);
   const [draggingCalc, setDraggingCalc] = useState(false);
   const dragOffset = useRef({ x: 0, y: 0 });
   const [showLineReader, setShowLineReader] = useState(false);
@@ -669,17 +670,33 @@ export default function QuizPage() {
           {/* ===== FLOATING: Desmos Calculator (Native API) ===== */}
           {showCalc && (
             <div
-              className="fixed z-40 rounded-xl border border-gray-700 bg-white shadow-2xl"
-              style={{ left: calcPos.x, top: calcPos.y, width: 520, height: 420 }}
+              className={`fixed z-40 rounded-xl border border-gray-700 bg-white shadow-2xl transition-all duration-200 ${calcExpanded ? '' : ''}`}
+              style={calcExpanded
+                ? { left: 40, top: 50, right: 40, bottom: 40, width: 'auto', height: 'auto' }
+                : { left: calcPos.x, top: calcPos.y, width: 520, height: 420 }
+              }
             >
               <div
                 className="flex items-center justify-between bg-[#0f172a] px-4 py-2 cursor-move select-none rounded-t-xl"
-                onMouseDown={handleCalcMouseDown}
+                onMouseDown={calcExpanded ? undefined : handleCalcMouseDown}
               >
                 <span className="text-xs font-medium text-gray-300">Graphing Calculator</span>
-                <button onClick={() => setShowCalc(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCalcExpanded(!calcExpanded)}
+                    className="text-gray-500 hover:text-white text-xs px-1.5 py-0.5 rounded hover:bg-gray-700 transition-colors"
+                    title={calcExpanded ? 'Minimize' : 'Expand'}
+                  >
+                    {calcExpanded ? (
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" /></svg>
+                    ) : (
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+                    )}
+                  </button>
+                  <button onClick={() => { setShowCalc(false); setCalcExpanded(false); }} className="text-gray-500 hover:text-white text-sm">&times;</button>
+                </div>
               </div>
-              <div style={{ width: '100%', height: 382 }}>
+              <div style={{ width: '100%', height: calcExpanded ? 'calc(100% - 36px)' : 382 }}>
                 <DesmosEmbed />
               </div>
             </div>
