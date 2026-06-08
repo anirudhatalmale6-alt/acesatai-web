@@ -193,7 +193,8 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
   const btn = getButtonContent();
 
   return (
-    <div className="relative">
+    <>
+      {/* Trigger Button */}
       <button
         onClick={handleClick}
         disabled={state === 'processing'}
@@ -211,56 +212,123 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
         {btn.text}
       </button>
 
+      {/* Backdrop Overlay + Centered Modal */}
       {showPanel && (
-        <div className="absolute bottom-full mb-3 right-0 w-96 max-h-80 rounded-xl border border-gray-700 bg-[#1e293b] shadow-2xl z-50 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700/50">
-            <span className="text-xs font-semibold text-purple-300">Socratic Voice Coach</span>
-            <div className="flex items-center gap-2">
-              {history.length > 0 && (
-                <span className="text-[10px] text-gray-500">{Math.floor(history.length / 2)} exchange{Math.floor(history.length / 2) !== 1 ? 's' : ''}</span>
-              )}
-              <button onClick={() => setShowPanel(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
-            </div>
-          </div>
+        <>
+          {/* Dimming backdrop - z-999 */}
+          <div
+            className="fixed inset-0 bg-[#0f172a]/70 backdrop-blur-sm"
+            style={{ zIndex: 999 }}
+            onClick={() => { if (state === 'idle') setShowPanel(false); }}
+          />
 
-          <div ref={panelRef} className="flex-1 overflow-y-auto p-3 space-y-3 max-h-56">
-            {history.length === 0 && state === 'idle' && (
-              <p className="text-center text-xs text-gray-500 py-4">Tap the mic and ask a question about the current problem. Your AI tutor will guide you without giving away the answer.</p>
-            )}
-
-            {history.map((entry, i) => (
-              <div key={i} className="flex gap-2">
-                <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full mt-0.5 text-[10px] ${entry.speaker === 'student' ? 'bg-blue-600/20 text-blue-400' : 'bg-purple-600/20 text-purple-400'}`}>
-                  {entry.speaker === 'student' ? 'Y' : 'C'}
+          {/* Coach Modal - z-1000 */}
+          <div
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-md rounded-2xl border border-gray-700 bg-[#1e293b] shadow-2xl flex flex-col"
+            style={{ zIndex: 1000, maxHeight: '80vh' }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700/50 rounded-t-2xl bg-[#0f172a]">
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-600/30">
+                  <svg className="h-3.5 w-3.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </div>
-                <p className={`text-xs leading-relaxed ${entry.speaker === 'student' ? 'text-gray-300 italic' : 'text-gray-200'}`}>
-                  {entry.speaker === 'student' ? `"${entry.text}"` : entry.text}
-                </p>
+                <span className="text-sm font-semibold text-purple-300">Socratic Voice Coach</span>
               </div>
-            ))}
-
-            {state === 'recording' && (
-              <div className="flex items-center gap-2 py-2">
-                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="text-xs text-red-400">Listening... speak now</span>
+              <div className="flex items-center gap-3">
+                {history.length > 0 && (
+                  <span className="text-xs text-gray-500">{Math.floor(history.length / 2)} exchange{Math.floor(history.length / 2) !== 1 ? 's' : ''}</span>
+                )}
+                <button onClick={() => setShowPanel(false)} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors text-lg">&times;</button>
               </div>
-            )}
-
-            {state === 'processing' && (
-              <div className="flex items-center gap-2 py-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                <span className="text-xs text-amber-400">Analyzing your question...</span>
-              </div>
-            )}
-          </div>
-
-          {error && (
-            <div className="mx-3 mb-3 rounded-lg bg-red-900/30 border border-red-700/50 px-3 py-2 text-[10px] text-red-300">
-              {error}
             </div>
-          )}
-        </div>
+
+            {/* Conversation Feed */}
+            <div ref={panelRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: '50vh' }}>
+              {history.length === 0 && state === 'idle' && (
+                <div className="text-center py-8">
+                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-purple-600/15">
+                    <svg className="h-7 w-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                  </div>
+                  <p className="text-sm font-medium text-gray-300 mb-1">Ask your AI tutor anything</p>
+                  <p className="text-xs text-gray-500">Tap the mic below and speak your question. The coach will guide you without giving away the answer.</p>
+                </div>
+              )}
+
+              {history.map((entry, i) => (
+                <div key={i} className={`flex gap-3 ${entry.speaker === 'student' ? '' : ''}`}>
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${entry.speaker === 'student' ? 'bg-blue-600/20 text-blue-400' : 'bg-purple-600/20 text-purple-400'}`}>
+                    {entry.speaker === 'student' ? 'Y' : 'C'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] text-gray-500 mb-0.5">{entry.speaker === 'student' ? 'You said' : 'Coach says'}</div>
+                    <p className={`text-sm leading-relaxed ${entry.speaker === 'student' ? 'text-gray-300 italic' : 'text-gray-100'}`}>
+                      {entry.speaker === 'student' ? `"${entry.text}"` : entry.text}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              {state === 'recording' && (
+                <div className="flex items-center justify-center gap-3 py-4">
+                  <div className="flex gap-1">
+                    <div className="h-3 w-1 rounded-full bg-red-500 animate-pulse" style={{ animationDelay: '0ms' }} />
+                    <div className="h-4 w-1 rounded-full bg-red-500 animate-pulse" style={{ animationDelay: '150ms' }} />
+                    <div className="h-2 w-1 rounded-full bg-red-500 animate-pulse" style={{ animationDelay: '300ms' }} />
+                    <div className="h-5 w-1 rounded-full bg-red-500 animate-pulse" style={{ animationDelay: '100ms' }} />
+                    <div className="h-3 w-1 rounded-full bg-red-500 animate-pulse" style={{ animationDelay: '250ms' }} />
+                  </div>
+                  <span className="text-sm text-red-400 font-medium">Listening... speak now</span>
+                </div>
+              )}
+
+              {state === 'processing' && (
+                <div className="flex items-center justify-center gap-3 py-4">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+                  <span className="text-sm text-amber-400 font-medium">Analyzing your question...</span>
+                </div>
+              )}
+
+              {state === 'playing' && (
+                <div className="flex items-center justify-center gap-3 py-2">
+                  <div className="flex gap-1">
+                    <div className="h-3 w-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '0ms' }} />
+                    <div className="h-5 w-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '100ms' }} />
+                    <div className="h-2 w-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '200ms' }} />
+                    <div className="h-4 w-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '300ms' }} />
+                    <div className="h-3 w-1 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: '150ms' }} />
+                  </div>
+                  <span className="text-sm text-emerald-400 font-medium">Coach is speaking...</span>
+                </div>
+              )}
+            </div>
+
+            {error && (
+              <div className="mx-4 mb-3 rounded-lg bg-red-900/30 border border-red-700/50 px-4 py-2 text-xs text-red-300">
+                {error}
+              </div>
+            )}
+
+            {/* Bottom Action Bar */}
+            <div className="px-4 py-3 border-t border-gray-700/50 flex items-center justify-center gap-3">
+              <button
+                onClick={handleClick}
+                disabled={state === 'processing'}
+                className={`flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all disabled:opacity-50 ${btn.color} ${btn.pulse ? 'animate-pulse' : ''}`}
+              >
+                {state === 'recording' ? (
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1" /></svg>
+                ) : state === 'processing' ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                )}
+                {state === 'recording' ? 'Stop & Ask' : state === 'processing' ? 'Thinking...' : history.length > 0 ? 'Ask Follow-up' : 'Start Recording'}
+              </button>
+            </div>
+          </div>
+        </>
       )}
-    </div>
+    </>
   );
 }
