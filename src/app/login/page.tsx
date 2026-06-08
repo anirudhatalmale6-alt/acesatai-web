@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { auth, googleProvider } from '@/lib/firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import Navbar from '@/components/Navbar';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -53,9 +52,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a]">
-      <Navbar />
-      <div className="flex items-center justify-center px-6 py-20">
+    <div className="min-h-screen bg-[#0a0e1a] flex flex-col items-center justify-center px-6">
+      <div className="mb-8 text-center">
+        <span className="text-2xl font-bold text-white tracking-tight">ACESATAI</span>
+      </div>
+      <div className="flex items-center justify-center w-full">
         <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-[#111827] p-8">
           <h2 className="mb-2 text-center text-2xl font-bold text-white">
             {isSignUp ? 'Create Account' : 'Welcome Back'}
