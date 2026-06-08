@@ -9,23 +9,33 @@ interface VoiceCoachProps {
   section: string;
 }
 
-interface ConversationEntry {
-  student: string;
-  coach: string;
-  audioUrl: string;
+interface HistoryEntry {
+  speaker: string;
+  text: string;
 }
 
 type RecordingState = 'idle' | 'recording' | 'processing' | 'playing';
 
 export default function VoiceCoach({ questionContext, questionId, userId, section }: VoiceCoachProps) {
   const [state, setState] = useState<RecordingState>('idle');
-  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [sessionId, setSessionId] = useState<string>('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const unlockAudioContext = async () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+  };
 
   const getSupportedMimeType = () => {
     if (typeof MediaRecorder === 'undefined') return '';
@@ -40,15 +50,24 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
     setError(null);
     setShowPanel(true);
 
+    await unlockAudioContext();
+
     if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
       setError('Your browser does not support audio recording. Please use Chrome, Safari, or Firefox.');
       return;
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      audioChunksRef.current = [];
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 44100,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+        } as any,
+      });
 
+      audioChunksRef.current = [];
       const mimeType = getSupportedMimeType();
       const options: MediaRecorderOptions = {};
       if (mimeType) options.mimeType = mimeType;
@@ -95,7 +114,7 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
     formData.append('question_id', String(questionId));
     formData.append('current_question_context', questionContext);
     formData.append('section', section);
-    formData.append('conversation_history', JSON.stringify(conversation));
+    if (sessionId) formData.append('session_id', sessionId);
 
     try {
       const res = await fetch('https://api.acesatai.com/api/v1/voice-coach', {
@@ -110,16 +129,15 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
 
       const data = await res.json();
 
-      const entry: ConversationEntry = {
-        student: data.student_said || '',
-        coach: data.coach_wrote || '',
-        audioUrl: data.audio_url || '',
-      };
-      setConversation(prev => [...prev, entry]);
+      if (data.session_id) setSessionId(data.session_id);
+      if (data.current_history_panel) setHistory(data.current_history_panel);
 
       if (data.audio_url) {
         setState('playing');
-        const audio = new Audio(data.audio_url);
+        const audio = new Audio();
+        audio.setAttribute('playsinline', '');
+        audio.setAttribute('webkit-playsinline', '');
+        audio.src = data.audio_url;
         audioRef.current = audio;
         audio.onended = () => setState('idle');
         audio.onerror = () => { setState('idle'); setError('Could not play audio response.'); };
@@ -140,7 +158,10 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
 
   const playAudio = (url: string) => {
     if (audioRef.current) audioRef.current.pause();
-    const audio = new Audio(url);
+    const audio = new Audio();
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('webkit-playsinline', '');
+    audio.src = url;
     audioRef.current = audio;
     audio.play().catch(() => {});
   };
@@ -165,7 +186,7 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
       case 'playing':
         return { text: 'Coach speaking...', color: 'bg-emerald-600', pulse: true };
       default:
-        return { text: conversation.length > 0 ? 'Ask Follow-up' : 'Talk to Coach', color: 'bg-purple-600 hover:bg-purple-700', pulse: false };
+        return { text: history.length > 0 ? 'Ask Follow-up' : 'Talk to Coach', color: 'bg-purple-600 hover:bg-purple-700', pulse: false };
     }
   };
 
@@ -195,39 +216,26 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
           <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700/50">
             <span className="text-xs font-semibold text-purple-300">Socratic Voice Coach</span>
             <div className="flex items-center gap-2">
-              {conversation.length > 0 && (
-                <span className="text-[10px] text-gray-500">{conversation.length} exchange{conversation.length > 1 ? 's' : ''}</span>
+              {history.length > 0 && (
+                <span className="text-[10px] text-gray-500">{Math.floor(history.length / 2)} exchange{Math.floor(history.length / 2) !== 1 ? 's' : ''}</span>
               )}
               <button onClick={() => setShowPanel(false)} className="text-gray-500 hover:text-white text-sm">&times;</button>
             </div>
           </div>
 
           <div ref={panelRef} className="flex-1 overflow-y-auto p-3 space-y-3 max-h-56">
-            {conversation.length === 0 && state === 'idle' && (
+            {history.length === 0 && state === 'idle' && (
               <p className="text-center text-xs text-gray-500 py-4">Tap the mic and ask a question about the current problem. Your AI tutor will guide you without giving away the answer.</p>
             )}
 
-            {conversation.map((entry, i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex gap-2">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-[10px] text-blue-400 mt-0.5">Y</div>
-                  <p className="text-xs text-gray-300 italic">&ldquo;{entry.student}&rdquo;</p>
+            {history.map((entry, i) => (
+              <div key={i} className="flex gap-2">
+                <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full mt-0.5 text-[10px] ${entry.speaker === 'student' ? 'bg-blue-600/20 text-blue-400' : 'bg-purple-600/20 text-purple-400'}`}>
+                  {entry.speaker === 'student' ? 'Y' : 'C'}
                 </div>
-                <div className="flex gap-2">
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-purple-600/20 text-[10px] text-purple-400 mt-0.5">C</div>
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-200 leading-relaxed">{entry.coach}</p>
-                    {entry.audioUrl && (
-                      <button
-                        onClick={() => playAudio(entry.audioUrl)}
-                        className="mt-1 flex items-center gap-1 text-[10px] text-purple-400 hover:text-purple-300"
-                      >
-                        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                        Replay
-                      </button>
-                    )}
-                  </div>
-                </div>
+                <p className={`text-xs leading-relaxed ${entry.speaker === 'student' ? 'text-gray-300 italic' : 'text-gray-200'}`}>
+                  {entry.speaker === 'student' ? `"${entry.text}"` : entry.text}
+                </p>
               </div>
             ))}
 
