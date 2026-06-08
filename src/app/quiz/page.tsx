@@ -327,7 +327,7 @@ export default function QuizPage() {
       {/* ===== ADAPTIVE NAVIGATION BAR ===== */}
       <header className="flex items-center justify-between border-b border-gray-800 bg-[#111827] px-4 py-2">
         <div className="flex items-center gap-3">
-          <h1 className="text-base font-bold text-white tracking-tight">ACESATAI</h1>
+          <a href="/dashboard" className="text-base font-bold text-white tracking-tight hover:text-blue-300 transition-colors">ACESATAI</a>
           <span className="text-xs text-gray-500">|</span>
           <span className="text-xs font-medium text-gray-400">
             {section === 'Verbal' ? 'Reading & Writing' : 'Mathematics'}
