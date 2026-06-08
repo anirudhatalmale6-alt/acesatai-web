@@ -128,7 +128,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-gray-800 px-6 py-8">
         <div className="mx-auto max-w-6xl text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} ACESATAI. All rights reserved. Built with adaptive intelligence.
+          &copy; {new Date().getFullYear()} mediaXtreme LLC | ACESATAI All Rights Reserved.
         </div>
       </footer>
     </div>
