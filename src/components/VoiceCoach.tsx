@@ -21,29 +21,51 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const getSupportedMimeType = () => {
+    const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav', ''];
+    for (const t of types) {
+      if (t === '' || MediaRecorder.isTypeSupported(t)) return t;
+    }
+    return '';
+  };
+
   const startRecording = async () => {
     setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+      const mimeType = getSupportedMimeType();
+      const options: MediaRecorderOptions = {};
+      if (mimeType) options.mimeType = mimeType;
+
+      const recorder = new MediaRecorder(stream, options);
+      const actualMime = recorder.mimeType || 'audio/webm';
 
       recorder.ondataavailable = (e) => {
-        audioChunksRef.current.push(e.data);
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
       };
 
       recorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
+        if (audioChunksRef.current.length === 0) {
+          setError('No audio recorded. Please try again and speak into the microphone.');
+          setState('idle');
+          return;
+        }
         setState('processing');
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await sendToCoach(blob);
+        const blob = new Blob(audioChunksRef.current, { type: actualMime });
+        const ext = actualMime.includes('mp4') ? 'mp4' : actualMime.includes('ogg') ? 'ogg' : 'webm';
+        await sendToCoach(blob, ext);
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start();
+      recorder.start(250);
       setState('recording');
-    } catch {
-      setError('Microphone access is required for Voice Coach.');
+    } catch (err) {
+      setError('Microphone access is required for Voice Coach. Please allow mic permissions in your browser settings.');
       setState('idle');
     }
   };
@@ -54,9 +76,9 @@ export default function VoiceCoach({ questionContext, questionId, userId, sectio
     }
   };
 
-  const sendToCoach = async (audioBlob: Blob) => {
+  const sendToCoach = async (audioBlob: Blob, ext: string = 'webm') => {
     const formData = new FormData();
-    formData.append('audio_file', audioBlob, 'student_question.webm');
+    formData.append('audio_file', audioBlob, `student_question.${ext}`);
     formData.append('user_id', userId);
     formData.append('question_id', String(questionId));
     formData.append('current_question_context', questionContext);
