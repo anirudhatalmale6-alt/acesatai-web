@@ -328,7 +328,9 @@ export default function QuizPage() {
       <header className="flex items-center justify-between border-b border-gray-800 bg-[#111827] px-4 py-2">
         <div className="flex items-center gap-3">
           <a href="/dashboard" className="text-base font-bold text-white tracking-tight hover:text-blue-300 transition-colors">ACESATAI</a>
-          <span className="text-xs text-gray-500">|</span>
+          <span className="text-xs text-gray-600">|</span>
+          <a href="/dashboard" className="rounded-md bg-gray-800 px-3 py-1 text-xs font-medium text-gray-300 hover:bg-blue-600/20 hover:text-blue-300 transition-colors">Dashboard</a>
+          <span className="text-xs text-gray-600">|</span>
           <span className="text-xs font-medium text-gray-400">
             {section === 'Verbal' ? 'Reading & Writing' : 'Mathematics'}
           </span>
