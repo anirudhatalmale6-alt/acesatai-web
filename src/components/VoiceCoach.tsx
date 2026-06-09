@@ -245,8 +245,8 @@ export default function VoiceCoach({ questionContext }: VoiceCoachProps) {
 
       {showPanel && (
         <>
-          <div className="fixed inset-0 bg-[#0f172a]/70 backdrop-blur-sm" style={{ zIndex: 999 }} onClick={() => { if (state === 'idle') { setShowPanel(false); } }} />
-          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[92vw] max-w-md rounded-2xl border border-gray-700 bg-[#1e293b] shadow-2xl flex flex-col" style={{ zIndex: 1000, maxHeight: '80vh' }}>
+          <div className="fixed inset-0 bg-[#0f172a]/30" style={{ zIndex: 999 }} onClick={() => { if (state === 'idle') { setShowPanel(false); } }} />
+          <div className="fixed left-0 right-0 bottom-0 md:left-auto md:right-4 md:bottom-4 md:w-96 rounded-t-2xl md:rounded-2xl border border-gray-700 bg-[#1e293b] shadow-2xl flex flex-col" style={{ zIndex: 1000, maxHeight: '45vh' }}>
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-700/50 rounded-t-2xl bg-[#0f172a]">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-600/30">
@@ -260,15 +260,9 @@ export default function VoiceCoach({ questionContext }: VoiceCoachProps) {
               <button onClick={() => { endSession(); setShowPanel(false); }} className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-700 hover:text-white transition-colors text-lg">&times;</button>
             </div>
 
-            <div ref={panelRef} className="flex-1 overflow-y-auto p-4 space-y-4" style={{ maxHeight: '50vh' }}>
+            <div ref={panelRef} className="flex-1 overflow-y-auto p-3 space-y-3" style={{ maxHeight: '28vh' }}>
               {conversation.length === 0 && state === 'idle' && (
-                <div className="text-center py-8">
-                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-purple-600/15">
-                    <svg className="h-7 w-7 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-                  </div>
-                  <p className="text-sm font-medium text-gray-300 mb-1">Real-time Voice Conversation</p>
-                  <p className="text-xs text-gray-500">Tap the button below to start a live conversation with your AI tutor. Just speak naturally - responses are instant.</p>
-                </div>
+                <p className="text-center text-xs text-gray-500 py-3">Speak naturally. Your AI tutor responds instantly.</p>
               )}
 
               {conversation.map((entry, i) => (
