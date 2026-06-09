@@ -132,12 +132,14 @@ export default function VoiceCoach({ questionContext }: VoiceCoachProps) {
             break;
 
           case 'conversation.item.input_audio_transcription.completed':
+          case 'conversation.item.input_audio_transcription.done':
             if (data.transcript) {
               setConversation(prev => [...prev, { speaker: 'student', text: data.transcript }]);
             }
             break;
 
           case 'response.audio.delta':
+          case 'response.output_audio.delta':
             setState('speaking');
             if (data.delta) {
               const binary = atob(data.delta);
@@ -150,6 +152,7 @@ export default function VoiceCoach({ questionContext }: VoiceCoachProps) {
             break;
 
           case 'response.audio_transcript.done':
+          case 'response.output_audio_transcript.done':
             if (data.transcript) {
               setConversation(prev => [...prev, { speaker: 'coach', text: data.transcript }]);
               setTimeout(() => {
