@@ -1,12 +1,10 @@
 {
-  "name": "acesatai-web",
+  "name": "project",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "build": "node canary.js && tsc",
+    "prepare": "node canary.js"
   },
   "dependencies": {
     "next": "^15.0.0",
